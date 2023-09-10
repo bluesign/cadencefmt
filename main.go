@@ -272,10 +272,7 @@ func main() {
 
 			if comment.Len() > 0 {
 				//add existing comment (leading), pad to next element
-				padding := ""
-				//if existingIndent != 0 {
-				padding = strings.Repeat(" ", newToken.StartPosition().Column)
-				//}
+				padding := strings.Repeat(" ", newToken.StartPosition().Column)
 				result.WriteString(indent.String(padding, comment.String()))
 				result.WriteString(padding)
 				comment.Reset()
