@@ -176,7 +176,8 @@ func prettyCode(existingCode string, maxLineLength int) string {
 	oldTokens := lexer.Lex([]byte(existingCode), nil)
 
 	prettyCode := pretty(existingCode, maxLineLength)
-	if strings.HasPrefix(prettyCode, "Parsing failed ") {
+	fmt.Println(prettyCode)
+	if strings.HasPrefix(prettyCode, "Parsing failed:") {
 		return prettyCode
 	}
 	newTokens := lexer.Lex([]byte(prettyCode), nil)
