@@ -217,7 +217,9 @@ func main() {
 					result.WriteString("{}")
 					continue
 				} else {
+					result.WriteString("{")
 					newTokens.Revert(cursor)
+					continue
 				}
 
 			}
@@ -239,6 +241,17 @@ func main() {
 						switch oldToken.Type {
 						case lexer.TokenLineComment:
 							comment.WriteString(extractTokenText(existingCode, oldToken))
+							oldLine := existingCodeLines[oldToken.StartPosition().Line-1][:oldToken.StartPosition().Column]
+							oldLine = strings.Trim(oldLine, " \t")
+							//trailing comment
+							if len(oldLine) > 0 {
+								//space before trailing comment
+								result.WriteString(" ")
+								result.WriteString(comment.String())
+								comment.Reset()
+							} else {
+								comment.WriteString("\n")
+							}
 
 						case lexer.TokenBlockCommentContent:
 							commentString := extractTokenText(existingCode, oldToken)
@@ -252,17 +265,6 @@ func main() {
 							}
 						}
 
-						oldLine := existingCodeLines[oldToken.StartPosition().Line-1][:oldToken.StartPosition().Column]
-						oldLine = strings.Trim(oldLine, " ")
-						//trailing comment
-						if len(oldLine) > 0 {
-							//space before trailing comment
-							result.WriteString(" ")
-							result.WriteString(comment.String())
-							comment.Reset()
-						} else {
-							comment.WriteString("\n")
-						}
 					}
 
 					if oldToken.Type == newToken.Type || oldToken.Is(lexer.TokenEOF) {
