@@ -233,11 +233,30 @@ func prettyCode(existingCode string, maxLineLength int) string {
 
 					switch oldToken.Type {
 					case lexer.TokenLineComment:
-						comment.WriteString(extractTokenText(existingCode, oldToken))
+						isTrailing := false
+
+						//check trailing
 						oldLine := existingCodeLines[oldToken.StartPosition().Line-1][:oldToken.StartPosition().Column]
 						oldLine = strings.Trim(oldLine, " \t")
-						//trailing comment
 						if len(oldLine) > 0 {
+							isTrailing = true
+						}
+
+						//check previous line empty
+						if !isTrailing && oldToken.StartPosition().Line > 1 {
+							if len(strings.Trim(existingCodeLines[oldToken.StartPosition().Line-2], " \t")) == 0 {
+								//leading comment
+								if len(oldLine) == 0 && !strings.HasSuffix(strings.Replace(spaces.String(), " ", "", -1), "\n\n") {
+									comment.WriteString("\n")
+								}
+							}
+						}
+
+						//add comment
+						comment.WriteString(extractTokenText(existingCode, oldToken))
+
+						//trailing comment
+						if isTrailing {
 							//space before trailing comment
 							result.WriteString(" ")
 							result.WriteString(comment.String())
