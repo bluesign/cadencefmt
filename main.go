@@ -330,6 +330,9 @@ func prettyCode(existingCode string, maxLineLength int) string {
 }
 
 func main() {
+	columnsFlag := flag.Int("c", 80, "columns")
+	portFlag := flag.Int("port", 9090, "port")
+	flag.Parse()
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(page))
@@ -343,13 +346,16 @@ func main() {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-
 		_, _ = w.Write([]byte(prettyCode(req.Code, req.MaxLineLength)))
 	})
 
-	if len(os.Args) != 2 {
-		portFlag := flag.Int("port", 9090, "port")
-		flag.Parse()
+	if filename := flag.Arg(0); filename != "" {
+		code, err := os.ReadFile(filename)
+		if err != nil {
+			panic(err)
+		}
+		fmt.Println(prettyCode(string(code), *columnsFlag))
+	} else {
 		ln, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", *portFlag))
 		if err != nil {
 			panic(err)
@@ -357,12 +363,6 @@ func main() {
 		log.Printf("Listening on http://%s/", ln.Addr().String())
 		var srv http.Server
 		_ = srv.Serve(ln)
-	} else {
-		code, err := os.ReadFile(os.Args[1])
-		if err != nil {
-			panic(err)
-		}
-		fmt.Println(prettyCode(string(code), 80))
 	}
 
 }
