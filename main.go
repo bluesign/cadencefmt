@@ -238,7 +238,7 @@ func main() {
 
 						switch oldToken.Type {
 						case lexer.TokenLineComment:
-							comment.WriteString(extractTokenText(existingCode, oldToken, 1))
+							comment.WriteString(extractTokenText(existingCode, oldToken, 0))
 
 						case lexer.TokenBlockCommentContent:
 							commentString := extractTokenText(existingCode, oldToken, 0)
@@ -256,9 +256,12 @@ func main() {
 						oldLine = strings.Trim(oldLine, " ")
 						//trailing comment
 						if len(oldLine) > 0 {
+							//space before trailing comment
 							result.WriteString(" ")
 							result.WriteString(comment.String())
 							comment.Reset()
+						} else {
+							comment.WriteString("\n")
 						}
 					}
 
