@@ -68,11 +68,17 @@ const page = `
             display: grid;
             grid-template-rows: 100vh;
             grid-template-columns: 50% 50%;
-            grid-template-areas: "editor ast";
+            grid-template-areas: "editor editor2";
         }
 
         #editor {
             grid-area: editor;
+            border: 1px solid #ccc;
+            resize: none;
+        }
+
+ 		#editor2 {
+            grid-area: editor2;
             border: 1px solid #ccc;
             resize: none;
         }
@@ -105,9 +111,12 @@ const page = `
 </head>
 <body id="panels">
 <textarea id="editor" onkeydown="if(event.keyCode===9){var v=this.value,s=this.selectionStart,e=this.selectionEnd;this.value=v.substring(0, s)+'    '+v.substring(e);this.selectionStart=this.selectionEnd=s+4;return false;}"></textarea>
+<textarea id="editor2"></textarea>
+
 <div id="pretty">
     <input id="stepper" type="number" min="1" step="1">
-    <div id="output"></div>
+    <div id="output">
+    </div>
     <div id="bar"></div>
 </div>
 </body>
@@ -147,7 +156,7 @@ const page = `
                 maxLineLength
             })
 		})
-		output.innerText = await response.text()
+		editor2.innerHTML = await response.text()
     }
 </script>
 </html>
