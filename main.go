@@ -191,8 +191,6 @@ func main() {
 		ignoredTokenTypes := []lexer.TokenType{
 			lexer.TokenParenClose,
 			lexer.TokenParenOpen,
-			lexer.TokenBraceOpen,
-			lexer.TokenBraceClose,
 			lexer.TokenBracketOpen,
 			lexer.TokenBracketClose,
 		}
@@ -210,6 +208,18 @@ func main() {
 			if newToken.Is(lexer.TokenSpace) {
 				spaces.WriteString(extractTokenText(prettyCode, newToken, 0))
 				continue
+			}
+
+			//temporary fix for pretty producing extra {} for interface members without default impl.
+			if newToken.Is(lexer.TokenBraceOpen) {
+				cursor := newTokens.Cursor()
+				if newTokens.Next().Type == lexer.TokenBraceClose {
+					result.WriteString("{}")
+					continue
+				} else {
+					result.WriteString("{")
+					newTokens.Revert(cursor)
+				}
 			}
 
 			if slices.Contains(ignoredTokenTypes, newToken.Type) {
