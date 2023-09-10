@@ -217,9 +217,9 @@ func main() {
 					result.WriteString("{}")
 					continue
 				} else {
-					result.WriteString("{")
 					newTokens.Revert(cursor)
 				}
+
 			}
 
 			if slices.Contains(ignoredTokenTypes, newToken.Type) {
