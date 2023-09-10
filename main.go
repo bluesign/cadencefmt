@@ -197,13 +197,6 @@ func main() {
 			lexer.TokenBracketClose,
 		}
 
-		ignoredTokenTypes2 := []lexer.TokenType{
-			lexer.TokenParenClose,
-			lexer.TokenParenOpen,
-		}
-
-		fmt.Println(ignoredTokenTypes2)
-
 		result := strings.Builder{}
 		spaces := strings.Builder{}
 		comment := strings.Builder{}
