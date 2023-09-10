@@ -171,12 +171,11 @@ func extractTokenText(text string, token lexer.Token) string {
 	return text[token.StartPos.Offset : token.EndPos.Offset+1]
 }
 
-func prettyCode(existingCode string, maxLineLength int) string {
+func prettyCode(existingCode string, maxLineLength int, tabs bool) string {
 	existingCodeLines := strings.Split(existingCode, "\n")
 	oldTokens := lexer.Lex([]byte(existingCode), nil)
 
 	prettyCode := pretty(existingCode, maxLineLength)
-	fmt.Println(prettyCode)
 	if strings.HasPrefix(prettyCode, "Parsing failed:") {
 		return prettyCode
 	}
@@ -326,12 +325,31 @@ func prettyCode(existingCode string, maxLineLength int) string {
 
 	}
 
-	return result.String()
+	if !tabs {
+		return result.String()
+	}
+
+	tabbedResult := &strings.Builder{}
+	for _, line := range strings.Split(result.String(), "\n") {
+		newline := line
+		for {
+			if strings.Index(strings.TrimLeft(newline, "\t"), strings.Repeat(" ", 4)) == -1 {
+				break
+			}
+			newline = strings.Replace(newline, strings.Repeat(" ", 4), "\t", 1)
+		}
+		tabbedResult.WriteString(newline)
+		tabbedResult.WriteString("\n")
+	}
+
+	return tabbedResult.String()
 }
 
 func main() {
 	columnsFlag := flag.Int("c", 80, "columns")
 	portFlag := flag.Int("port", 9090, "port")
+	tabsFlag := flag.Bool("t", false, "tabs")
+
 	flag.Parse()
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -346,7 +364,7 @@ func main() {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		_, _ = w.Write([]byte(prettyCode(req.Code, req.MaxLineLength)))
+		_, _ = w.Write([]byte(prettyCode(req.Code, req.MaxLineLength, false)))
 	})
 
 	if filename := flag.Arg(0); filename != "" {
@@ -354,7 +372,8 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-		fmt.Println(prettyCode(string(code), *columnsFlag))
+		fmt.Println(prettyCode(string(code), *columnsFlag, *tabsFlag))
+
 	} else {
 		ln, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", *portFlag))
 		if err != nil {
