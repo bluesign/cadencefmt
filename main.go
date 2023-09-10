@@ -25,6 +25,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"os"
 	"strings"
 
 	"github.com/openconfig/goyang/pkg/indent"
@@ -161,9 +162,136 @@ func extractTokenText(text string, token lexer.Token) string {
 	return text[token.StartPos.Offset : token.EndPos.Offset+1]
 }
 
+func prettyCode(existingCode string, maxLineLength int) string {
+	existingCodeLines := strings.Split(existingCode, "\n")
+	oldTokens := lexer.Lex([]byte(existingCode), nil)
+
+	prettyCode := pretty(existingCode, maxLineLength)
+	newTokens := lexer.Lex([]byte(prettyCode), nil)
+
+	oldToken := lexer.Token{Type: lexer.TokenSpace}
+	newToken := lexer.Token{Type: lexer.TokenSpace}
+
+	ignoredTokenTypes := []lexer.TokenType{
+		lexer.TokenParenClose,
+		lexer.TokenParenOpen,
+		lexer.TokenBracketOpen,
+		lexer.TokenBracketClose,
+	}
+
+	result := strings.Builder{}
+	spaces := strings.Builder{}
+	comment := strings.Builder{}
+
+	for {
+
+		if !newToken.Is(lexer.TokenEOF) {
+			newToken = newTokens.Next()
+		}
+
+		if newToken.Is(lexer.TokenSpace) {
+			spaces.WriteString(extractTokenText(prettyCode, newToken))
+			continue
+		}
+
+		//temporary fix for pretty producing extra {} for interface members without default impl.
+		if newToken.Is(lexer.TokenBraceOpen) {
+			cursor := newTokens.Cursor()
+			if newTokens.Next().Type == lexer.TokenBraceClose {
+				result.WriteString("{}")
+				continue
+			} else {
+				result.WriteString("{")
+				newTokens.Revert(cursor)
+				continue
+			}
+
+		}
+
+		if slices.Contains(ignoredTokenTypes, newToken.Type) {
+			result.WriteString(spaces.String())
+			result.WriteString(extractTokenText(prettyCode, newToken))
+			spaces.Reset()
+			continue
+		}
+
+		if !oldToken.Is(lexer.TokenEOF) {
+			for {
+				oldToken = oldTokens.Next()
+
+				//check only comments
+				if oldToken.Is(lexer.TokenLineComment) || oldToken.Is(lexer.TokenBlockCommentContent) {
+
+					switch oldToken.Type {
+					case lexer.TokenLineComment:
+						comment.WriteString(extractTokenText(existingCode, oldToken))
+						oldLine := existingCodeLines[oldToken.StartPosition().Line-1][:oldToken.StartPosition().Column]
+						oldLine = strings.Trim(oldLine, " \t")
+						//trailing comment
+						if len(oldLine) > 0 {
+							//space before trailing comment
+							result.WriteString(" ")
+							result.WriteString(comment.String())
+							comment.Reset()
+						} else {
+							comment.WriteString("\n")
+						}
+
+					case lexer.TokenBlockCommentContent:
+						commentString := extractTokenText(existingCode, oldToken)
+						comment.WriteString("/*")
+						comment.WriteString(commentString)
+						comment.WriteString("*/")
+
+						if oldToken.StartPos.Line < oldToken.EndPos.Line {
+							//multiline block comment
+							comment.WriteString("\n\n")
+						}
+					}
+
+				}
+
+				if oldToken.Type == newToken.Type || oldToken.Is(lexer.TokenEOF) {
+					break
+				}
+			}
+		}
+
+		if oldToken.Is(lexer.TokenEOF) && newToken.Is(lexer.TokenEOF) {
+			//add remaining comments and finish
+			result.WriteString(comment.String())
+			break
+		}
+
+		//add spaces without existing indent in case we put comment
+		spacesString := spaces.String()
+		existingIndent := len(spacesString) - (strings.LastIndex(spacesString, "\n") + 1)
+		result.WriteString(strings.TrimRight(spacesString, " "))
+		spaces.Reset()
+
+		if comment.Len() > 0 {
+			//add existing comment (leading), pad to next element
+			padding := strings.Repeat(" ", newToken.StartPosition().Column)
+			result.WriteString(indent.String(padding, comment.String()))
+			result.WriteString(padding)
+			comment.Reset()
+		} else {
+			result.WriteString(strings.Repeat(" ", existingIndent))
+		}
+
+		//add prettified code
+		result.WriteString(extractTokenText(prettyCode, newToken))
+
+	}
+
+	return result.String()
+}
+
 func main() {
 
 	portFlag := flag.Int("port", 9090, "port")
+	fileFlag := flag.String("file", "", "file")
+	flag.Parse()
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(page))
@@ -178,136 +306,23 @@ func main() {
 			return
 		}
 
-		existingCode := req.Code
-		existingCodeLines := strings.Split(existingCode, "\n")
-		oldTokens := lexer.Lex([]byte(existingCode), nil)
-
-		prettyCode := pretty(existingCode, req.MaxLineLength)
-		newTokens := lexer.Lex([]byte(prettyCode), nil)
-
-		oldToken := lexer.Token{Type: lexer.TokenSpace}
-		newToken := lexer.Token{Type: lexer.TokenSpace}
-
-		ignoredTokenTypes := []lexer.TokenType{
-			lexer.TokenParenClose,
-			lexer.TokenParenOpen,
-			lexer.TokenBracketOpen,
-			lexer.TokenBracketClose,
-		}
-
-		result := strings.Builder{}
-		spaces := strings.Builder{}
-		comment := strings.Builder{}
-
-		for {
-
-			if !newToken.Is(lexer.TokenEOF) {
-				newToken = newTokens.Next()
-			}
-
-			if newToken.Is(lexer.TokenSpace) {
-				spaces.WriteString(extractTokenText(prettyCode, newToken))
-				continue
-			}
-
-			//temporary fix for pretty producing extra {} for interface members without default impl.
-			if newToken.Is(lexer.TokenBraceOpen) {
-				cursor := newTokens.Cursor()
-				if newTokens.Next().Type == lexer.TokenBraceClose {
-					result.WriteString("{}")
-					continue
-				} else {
-					result.WriteString("{")
-					newTokens.Revert(cursor)
-					continue
-				}
-
-			}
-
-			if slices.Contains(ignoredTokenTypes, newToken.Type) {
-				result.WriteString(spaces.String())
-				result.WriteString(extractTokenText(prettyCode, newToken))
-				spaces.Reset()
-				continue
-			}
-
-			if !oldToken.Is(lexer.TokenEOF) {
-				for {
-					oldToken = oldTokens.Next()
-
-					//check only comments
-					if oldToken.Is(lexer.TokenLineComment) || oldToken.Is(lexer.TokenBlockCommentContent) {
-
-						switch oldToken.Type {
-						case lexer.TokenLineComment:
-							comment.WriteString(extractTokenText(existingCode, oldToken))
-							oldLine := existingCodeLines[oldToken.StartPosition().Line-1][:oldToken.StartPosition().Column]
-							oldLine = strings.Trim(oldLine, " \t")
-							//trailing comment
-							if len(oldLine) > 0 {
-								//space before trailing comment
-								result.WriteString(" ")
-								result.WriteString(comment.String())
-								comment.Reset()
-							} else {
-								comment.WriteString("\n")
-							}
-
-						case lexer.TokenBlockCommentContent:
-							commentString := extractTokenText(existingCode, oldToken)
-							comment.WriteString("/*")
-							comment.WriteString(commentString)
-							comment.WriteString("*/")
-
-							if oldToken.StartPos.Line < oldToken.EndPos.Line {
-								//multiline block comment
-								comment.WriteString("\n\n")
-							}
-						}
-
-					}
-
-					if oldToken.Type == newToken.Type || oldToken.Is(lexer.TokenEOF) {
-						break
-					}
-				}
-			}
-
-			if oldToken.Is(lexer.TokenEOF) && newToken.Is(lexer.TokenEOF) {
-				//add remaining comments and finish
-				result.WriteString(comment.String())
-				break
-			}
-
-			//add spaces without existing indent in case we put comment
-			spacesString := spaces.String()
-			existingIndent := len(spacesString) - (strings.LastIndex(spacesString, "\n") + 1)
-			result.WriteString(strings.TrimRight(spacesString, " "))
-			spaces.Reset()
-
-			if comment.Len() > 0 {
-				//add existing comment (leading), pad to next element
-				padding := strings.Repeat(" ", newToken.StartPosition().Column)
-				result.WriteString(indent.String(padding, comment.String()))
-				result.WriteString(padding)
-				comment.Reset()
-			} else {
-				result.WriteString(strings.Repeat(" ", existingIndent))
-			}
-
-			//add prettified code
-			result.WriteString(extractTokenText(prettyCode, newToken))
-
-		}
-
-		_, _ = w.Write([]byte(result.String()))
+		_, _ = w.Write([]byte(prettyCode(req.Code, req.MaxLineLength)))
 	})
 
-	ln, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", *portFlag))
-	if err != nil {
-		panic(err)
+	if *fileFlag == "" {
+		ln, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", *portFlag))
+		if err != nil {
+			panic(err)
+		}
+		log.Printf("Listening on http://%s/", ln.Addr().String())
+		var srv http.Server
+		_ = srv.Serve(ln)
+	} else {
+		code, err := os.ReadFile(*fileFlag)
+		if err != nil {
+			panic(err)
+		}
+		fmt.Println(prettyCode(string(code), 80))
 	}
-	log.Printf("Listening on http://%s/", ln.Addr().String())
-	var srv http.Server
-	_ = srv.Serve(ln)
+
 }
