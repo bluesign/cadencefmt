@@ -289,10 +289,6 @@ func prettyCode(existingCode string, maxLineLength int) string {
 
 func main() {
 
-	portFlag := flag.Int("port", 9090, "port")
-	fileFlag := flag.String("file", "", "file")
-	flag.Parse()
-
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(page))
 	})
@@ -309,7 +305,9 @@ func main() {
 		_, _ = w.Write([]byte(prettyCode(req.Code, req.MaxLineLength)))
 	})
 
-	if *fileFlag == "" {
+	if len(os.Args) != 2 {
+		portFlag := flag.Int("port", 9090, "port")
+		flag.Parse()
 		ln, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", *portFlag))
 		if err != nil {
 			panic(err)
@@ -318,7 +316,7 @@ func main() {
 		var srv http.Server
 		_ = srv.Serve(ln)
 	} else {
-		code, err := os.ReadFile(*fileFlag)
+		code, err := os.ReadFile(os.Args[1])
 		if err != nil {
 			panic(err)
 		}
