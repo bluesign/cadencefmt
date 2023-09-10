@@ -255,6 +255,16 @@ func prettyCode(existingCode string, maxLineLength int) string {
 						//add comment
 						comment.WriteString(extractTokenText(existingCode, oldToken))
 
+						//check next line empty
+						if !isTrailing && oldToken.StartPosition().Line < len(existingCodeLines) {
+							if len(strings.Trim(existingCodeLines[oldToken.StartPosition().Line], " \t")) == 0 {
+								//leading comment
+								if len(oldLine) == 0 {
+									comment.WriteString("\n")
+								}
+							}
+						}
+
 						//trailing comment
 						if isTrailing {
 							//space before trailing comment
