@@ -157,8 +157,8 @@ type Request struct {
 	MaxLineLength int    `json:"maxLineLength"`
 }
 
-func extractTokenText(text string, token lexer.Token, extra int) string {
-	return text[token.StartPos.Offset : token.EndPos.Offset+1+extra]
+func extractTokenText(text string, token lexer.Token) string {
+	return text[token.StartPos.Offset : token.EndPos.Offset+1]
 }
 
 func main() {
@@ -206,7 +206,7 @@ func main() {
 			}
 
 			if newToken.Is(lexer.TokenSpace) {
-				spaces.WriteString(extractTokenText(prettyCode, newToken, 0))
+				spaces.WriteString(extractTokenText(prettyCode, newToken))
 				continue
 			}
 
@@ -224,7 +224,7 @@ func main() {
 
 			if slices.Contains(ignoredTokenTypes, newToken.Type) {
 				result.WriteString(spaces.String())
-				result.WriteString(extractTokenText(prettyCode, newToken, 0))
+				result.WriteString(extractTokenText(prettyCode, newToken))
 				spaces.Reset()
 				continue
 			}
@@ -238,10 +238,10 @@ func main() {
 
 						switch oldToken.Type {
 						case lexer.TokenLineComment:
-							comment.WriteString(extractTokenText(existingCode, oldToken, 0))
+							comment.WriteString(extractTokenText(existingCode, oldToken))
 
 						case lexer.TokenBlockCommentContent:
-							commentString := extractTokenText(existingCode, oldToken, 0)
+							commentString := extractTokenText(existingCode, oldToken)
 							comment.WriteString("/*")
 							comment.WriteString(commentString)
 							comment.WriteString("*/")
@@ -294,7 +294,7 @@ func main() {
 			}
 
 			//add prettified code
-			result.WriteString(extractTokenText(prettyCode, newToken, 0))
+			result.WriteString(extractTokenText(prettyCode, newToken))
 
 		}
 
